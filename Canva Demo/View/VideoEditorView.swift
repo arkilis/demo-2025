@@ -45,6 +45,7 @@ struct VideoEditorView<VM: VideoEditorViewModelProtocol>: View {
       ZStack {
         Color.black
         VideoPlayerView(viewModel: videoPlayerViewModel)
+          .rotationEffect(.degrees(videoPlayerViewModel.rotationAngle))
       }
       
       // Timeline
@@ -79,6 +80,10 @@ struct VideoEditorView<VM: VideoEditorViewModelProtocol>: View {
         VStack(spacing: 4) { Image(systemName: "music.note"); Text("Add Music").font(.caption) }
         Spacer()
         VStack(spacing: 4) { Image(systemName: "arrow.clockwise"); Text("Rotate").font(.caption) }
+          .toolbarButton {
+            videoPlayerViewModel.rotate()
+          }
+        
         Spacer()
       }
       .padding(.vertical, 8)
