@@ -1,17 +1,28 @@
+import Foundation
 import SwiftUI
 import PhotosUI
+
+enum ActiveDialog: Identifiable {
+  case filter, addVideo, addMusic
+  var id: Int { hashValue }
+  var title: String {
+    switch self {
+    case .filter: return Constants.sheetVideoFilter
+    case .addVideo: return Constants.sheetAddVideo
+    case .addMusic: return Constants.sheetAddMuisic
+    }
+  }
+}
 
 struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View {
   
   @State private var selectedVideoURL: URL?
   @State private var isPickerPresented = false
   @State private var exportStatus = ""
-  @State private var showingFilterSheet = false
-  @State private var showingAddVideoSheet = false
-  @State private var showingAddMusicSheet = false
-
+  @State private var activeDialog: ActiveDialog?
+  
   @StateObject private var videoPlayerViewModel: VideoPlayerViewModel
-
+  
   
   // Sample thumbnails for timeline segments
   let thumbnails = Array(1...5).map { "thumb\($0)" }
@@ -24,7 +35,7 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
     VStack(spacing: 0) {
       // Top toolbar
       HStack {
-        Image(systemName: "line.horizontal.3")
+        Image(systemName: Constants.iconMenu)
         Spacer()
         HStack(spacing: 16) {
           Button(action: {
@@ -34,9 +45,9 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
               videoPlayerViewModel.play()
             }
           }) {
-            Image(systemName: videoPlayerViewModel.isPlaying ? "pause.fill" : "play.fill")
+            Image(systemName: videoPlayerViewModel.isPlaying ? Constants.iconPlay : Constants.iconPause)
           }
-          Image(systemName: "square.and.arrow.up")
+          Image(systemName: Constants.iconShare)
         }
       }
       .foregroundColor(.white)
@@ -73,75 +84,45 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
       Spacer()
       
       // Bottom toolbar
-      HStack {
-        Spacer()
-        VStack(spacing: 4) { Image(systemName: "video"); Text("Add Effect").font(.caption) }
-          .toolbarButton {
-            showingFilterSheet = true
-          }
-        Spacer()
-        VStack(spacing: 4) { Image(systemName: "video.fill"); Text("Add Video").font(.caption) }
-          .toolbarButton {
-            showingAddVideoSheet = true
-          }
-        Spacer()
-        VStack(spacing: 4) { Image(systemName: "textformat"); Text("Add Text").font(.caption) }
-          .toolbarButton {
-            videoPlayerViewModel.addTextOverlay(text: "Hi!", position: .center, fontSize: 50, textColor: .white, backgroundColor: .clear, startTime: .zero, duration: nil)
-          }
-        Spacer()
-        VStack(spacing: 4) { Image(systemName: "photo.on.rectangle"); Text("Add Image").font(.caption) }
-        Spacer()
-        VStack(spacing: 4) { Image(systemName: "music.note"); Text("Add Music").font(.caption) }
-          .toolbarButton {
-            showingAddMusicSheet = true
-          }
-        Spacer()
-        VStack(spacing: 4) { Image(systemName: "arrow.clockwise"); Text("Rotate").font(.caption) }
-          .toolbarButton {
-            videoPlayerViewModel.rotate()
-          }
-        
-        Spacer()
-      }
+      BottomToolbarView(
+        viewModel: videoPlayerViewModel,
+        showingFilterSheet: Binding(
+          get: { activeDialog == .filter },
+          set: { if $0 { activeDialog = .filter } else { activeDialog = nil } }
+        ),
+        showingAddVideoSheet: Binding(
+          get: { activeDialog == .addVideo },
+          set: { if $0 { activeDialog = .addVideo } else { activeDialog = nil } }
+        ),
+        showingAddMusicSheet: Binding(
+          get: { activeDialog == .addMusic },
+          set: { if $0 { activeDialog = .addMusic } else { activeDialog = nil } }
+        )
+      )
       .padding(.vertical, 8)
       .background(Color(UIColor.systemBackground))
     }
     .background(Color.white)
     .confirmationDialog(
-      "Choose Filter",
-      isPresented: $showingFilterSheet,
+      activeDialog?.title ?? "",
+      isPresented: Binding<Bool>(
+        get: { activeDialog != nil },
+        set: { if !$0 { activeDialog = nil } }
+      ),
       titleVisibility: .visible
     ) {
-      Button("Black and White") {
-        videoPlayerViewModel.applyGrayscale()
-      }
-    }
-    .confirmationDialog(
-      "Add Video",
-      isPresented: $showingAddVideoSheet,
-      titleVisibility: .visible
-    ) {
-      Button("Cat") {
-        videoPlayerViewModel.appendVideo(name: "cat")
-      }
-      Button("Dog") {
-        videoPlayerViewModel.appendVideo(name: "dog")
-      }
-    }
-    .confirmationDialog(
-      "Add Background Music",
-      isPresented: $showingAddMusicSheet,
-      titleVisibility: .visible
-    ) {
-      Button("Music 1") {
-        videoPlayerViewModel.addBackgroundMusic(name: "background1")
-      }
-      Button("Music 2") {
-        videoPlayerViewModel.addBackgroundMusic(name: "background2")
-      }
-      Button("Music 3") {
-        videoPlayerViewModel.addBackgroundMusic(name: "background3")
+      switch activeDialog {
+      case .filter:
+        Button(Constants.sheetButtonFilterBlackWhite) { videoPlayerViewModel.applyGrayscale() }
+      case .addVideo:
+        Button(Constants.sheetButtonCat) { videoPlayerViewModel.appendVideo(name: Constants.resourceCat) }
+        Button(Constants.sheetButtonDog) { videoPlayerViewModel.appendVideo(name: Constants.resourceDog) }
+      case .addMusic:
+        Button(Constants.sheetButtonMusic1) { videoPlayerViewModel.addBackgroundMusic(name: Constants.resourceBackground1) }
+        Button(Constants.sheetButtonMusic2) { videoPlayerViewModel.addBackgroundMusic(name: Constants.resourceBackground2) }
+        Button(Constants.sheetButtonMusic3) { videoPlayerViewModel.addBackgroundMusic(name: Constants.resourceBackground3) }
+      case .none:
+        EmptyView()
       }
     }
   }

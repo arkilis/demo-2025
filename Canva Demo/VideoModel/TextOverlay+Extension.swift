@@ -10,9 +10,9 @@ import AVFoundation
 
 extension VideoPlayerViewModel {
   
-  // Adds text overlay to the current video
+  /// Adds text overlay to the current video
   func addTextOverlay(text: String,
-                      position: TextPosition = .bottomCenter,
+                      position: ElementPosition = .bottomCenter,
                       fontSize: CGFloat = 36,
                       textColor: UIColor = .white,
                       backgroundColor: UIColor = .black.withAlphaComponent(0.5),
@@ -76,7 +76,7 @@ extension VideoPlayerViewModel {
                                textColor: UIColor,
                                backgroundColor: UIColor,
                                renderSize: CGSize,
-                               position: TextPosition) -> CIImage? {
+                               position: ElementPosition) -> CIImage? {
     
     // Create attributed string
     let attributes: [NSAttributedString.Key: Any] = [
@@ -151,7 +151,7 @@ extension VideoPlayerViewModel {
     return positionedText
   }
   
-  private func calculateTextPosition(position: TextPosition,
+  private func calculateTextPosition(position: ElementPosition,
                                      textSize: CGSize,
                                      renderSize: CGSize) -> CGPoint {
     let margin: CGFloat = 20
