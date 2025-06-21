@@ -40,7 +40,7 @@ class VideoPlayerUIView: UIView {
 }
 
 
-struct VideoPlayerView<VM: VideoEditorViewModelProtocol>: UIViewRepresentable {
+struct VideoPlayerView<VM: VideoPlayerViewModelProtocol>: UIViewRepresentable {
   @ObservedObject var viewModel: VM
   
   func makeUIView(context: Context) -> VideoPlayerUIView {

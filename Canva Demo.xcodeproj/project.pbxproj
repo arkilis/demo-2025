@@ -29,9 +29,33 @@
 		B592D3392E05FD2F0063FCE0 /* Canva DemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Canva DemoUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B592D4262E062B9D0063FCE0 /* Exceptions for "Canva Demo" folder in "Canva Demo" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/Shader/grayscale.metal,
+			);
+			target = B592D3212E05FD2E0063FCE0 /* Canva Demo */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		B592D4252E062B730063FCE0 /* Exceptions for "Canva Demo" folder in "Copy Bundle Resources" phase from "Canva Demo" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = B592D3202E05FD2E0063FCE0 /* Resources */;
+			membershipExceptions = (
+				Resources/Shader/grayscale.metal,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B592D3242E05FD2E0063FCE0 /* Canva Demo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B592D4262E062B9D0063FCE0 /* Exceptions for "Canva Demo" folder in "Canva Demo" target */,
+				B592D4252E062B730063FCE0 /* Exceptions for "Canva Demo" folder in "Copy Bundle Resources" phase from "Canva Demo" target */,
+			);
 			path = "Canva Demo";
 			sourceTree = "<group>";
 		};

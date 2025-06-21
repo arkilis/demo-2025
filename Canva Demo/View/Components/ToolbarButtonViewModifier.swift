@@ -13,7 +13,7 @@ struct ToolbarButtonModifier: ViewModifier {
     Button(action: action) {
       content
     }
-    .foregroundColor(.black)
+    .foregroundColor(.primary)
   }
 }
 

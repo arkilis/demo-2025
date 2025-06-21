@@ -1,17 +1,21 @@
 import SwiftUI
 import PhotosUI
 
-struct VideoEditorView<VM: VideoEditorViewModelProtocol>: View {
+struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View {
+  
   @State private var selectedVideoURL: URL?
   @State private var isPickerPresented = false
   @State private var exportStatus = ""
+  @State private var showingFilterSheet = false
   
-  @StateObject private var videoPlayerViewModel: VM
+  @StateObject private var videoPlayerViewModel: VideoPlayerViewModel
+
+  
   // Sample thumbnails for timeline segments
   let thumbnails = Array(1...5).map { "thumb\($0)" }
   
-  init(viewModel: VM) {
-    _videoPlayerViewModel = StateObject(wrappedValue: viewModel)
+  public init(videoPlayerViewModel: VideoPlayerViewModel) {
+    _videoPlayerViewModel = StateObject(wrappedValue: videoPlayerViewModel)
   }
   
   var body: some View {
@@ -41,7 +45,7 @@ struct VideoEditorView<VM: VideoEditorViewModelProtocol>: View {
                                  startPoint: .leading,
                                  endPoint: .trailing))
       
-      // Video preview placeholder
+      // Video preview
       ZStack {
         Color.black
         VideoPlayerView(viewModel: videoPlayerViewModel)
@@ -70,6 +74,9 @@ struct VideoEditorView<VM: VideoEditorViewModelProtocol>: View {
       HStack {
         Spacer()
         VStack(spacing: 4) { Image(systemName: "video"); Text("Add Effect").font(.caption) }
+          .toolbarButton {
+            showingFilterSheet = true
+          }
         Spacer()
         VStack(spacing: 4) { Image(systemName: "video.fill"); Text("Add Video").font(.caption) }
         Spacer()
@@ -90,5 +97,14 @@ struct VideoEditorView<VM: VideoEditorViewModelProtocol>: View {
       .background(Color(UIColor.systemBackground))
     }
     .background(Color.white)
+    .confirmationDialog(
+      "Choose Filter",
+      isPresented: $showingFilterSheet,
+      titleVisibility: .visible
+    ) {
+      Button("Black and White") {
+        videoPlayerViewModel.applyGrayscale()
+      }
+    }
   }
 }
