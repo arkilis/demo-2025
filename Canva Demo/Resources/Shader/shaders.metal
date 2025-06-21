@@ -25,3 +25,23 @@ kernel void grayscaleShader(
     // Write the grayscale color back to the output texture
     outTexture.write(half4(gray, gray, gray, inColor.a), gid);
 }
+
+// Overlay text compute kernel
+kernel void overlayTextShader(
+    texture2d<half, access::read>  inTexture   [[ texture(0) ]],
+    texture2d<half, access::write> outTexture  [[ texture(1) ]],
+    texture2d<half, access::read>  textTexture [[ texture(2) ]],
+    uint2 gid                               [[ thread_position_in_grid ]]
+) {
+    // Bounds check
+    if (gid.x >= outTexture.get_width() || gid.y >= outTexture.get_height()) {
+        return;
+    }
+    // Read frame pixel
+    half4 frameColor = inTexture.read(gid);
+    // Read text pixel
+    half4 textColor  = textTexture.read(gid);
+    // Alpha blend: output = text + (1 - text.a) * frame
+    half3 blended = textColor.rgb + (1.0 - textColor.a) * frameColor.rgb;
+    outTexture.write(half4(blended, 1.0), gid);
+}

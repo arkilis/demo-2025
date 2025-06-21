@@ -33,7 +33,7 @@
 		B592D4262E062B9D0063FCE0 /* Exceptions for "Canva Demo" folder in "Canva Demo" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Resources/Shader/grayscale.metal,
+				Resources/Shader/shaders.metal,
 			);
 			target = B592D3212E05FD2E0063FCE0 /* Canva Demo */;
 		};
@@ -44,7 +44,7 @@
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
 			buildPhase = B592D3202E05FD2E0063FCE0 /* Resources */;
 			membershipExceptions = (
-				Resources/Shader/grayscale.metal,
+				Resources/Shader/shaders.metal,
 			);
 		};
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
