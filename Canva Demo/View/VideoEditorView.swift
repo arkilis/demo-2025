@@ -87,7 +87,7 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
         Spacer()
         VStack(spacing: 4) { Image(systemName: "textformat"); Text("Add Text").font(.caption) }
           .toolbarButton {
-            videoPlayerViewModel.applyText("Hi there!")
+            videoPlayerViewModel.addTextOverlay(text: "Hi!", position: .center, fontSize: 50, textColor: .white, backgroundColor: .clear, startTime: .zero, duration: nil)
           }
         Spacer()
         VStack(spacing: 4) { Image(systemName: "photo.on.rectangle"); Text("Add Image").font(.caption) }

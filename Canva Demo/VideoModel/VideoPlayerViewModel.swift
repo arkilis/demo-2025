@@ -13,6 +13,15 @@ import CoreImage
 import UIKit
 import CoreGraphics
 
+/// Simple enum to pick one of the four corners (or center) for your overlay text.
+enum TextPosition {
+    case topLeft, topCenter, topRight
+    case centerLeft, center, centerRight
+    case bottomLeft, bottomCenter, bottomRight
+    case custom(x: CGFloat, y: CGFloat) // 0.0 to 1.0 normalized coordinates
+}
+
+
 protocol VideoPlayerViewModelProtocol: ObservableObject {
   var player: AVPlayer { get }
   var isPlaying: Bool { get }
@@ -21,9 +30,15 @@ protocol VideoPlayerViewModelProtocol: ObservableObject {
   func pause()
   func rotate()
   func applyGrayscale()
-  func applyText(_ text: String)
   func addBackgroundMusic(name: String)
   func appendVideo(name: String)
+  func addTextOverlay(text: String,
+                     position: TextPosition,
+                     fontSize: CGFloat,
+                     textColor: UIColor,
+                     backgroundColor: UIColor,
+                     startTime: CMTime,
+                     duration: CMTime?)
 }
 
 final class VideoPlayerViewModel: ObservableObject, VideoPlayerViewModelProtocol {
@@ -121,155 +136,6 @@ final class VideoPlayerViewModel: ObservableObject, VideoPlayerViewModelProtocol
     
     // Apply to player item
     currentItem.videoComposition = videoComposition
-  }
-  
-  /// Overlays the given text using a Metal compute shader.
-  func applyText(_ text: String) {
-    guard let currentItem = player.currentItem else { return }
-    let asset = currentItem.asset
-    
-    // 1. Determine video size
-    guard let track = asset.tracks(withMediaType: .video).first else { return }
-    let size = track.naturalSize
-    
-    // 2. Create a texture for the rendered text
-    let font = UIFont.systemFont(ofSize: 72)
-    guard let textTexture = makeTextTexture(text,
-                                            font: font,
-                                            color: .white,
-                                            device: device,
-                                            size: size) else {
-      return
-    }
-    
-    // 3. Build video composition with Metal overlay
-    let videoComposition = AVMutableVideoComposition(asset: asset) { request in
-      let srcImage = request.sourceImage.clampedToExtent()
-      
-      // 4. Prepare input/output Metal textures
-      let desc = MTLTextureDescriptor.texture2DDescriptor(
-        pixelFormat: .bgra8Unorm,
-        width: Int(size.width),
-        height: Int(size.height),
-        mipmapped: false
-      )
-      desc.usage = [.shaderRead, .shaderWrite]
-      guard
-        let inTexture = self.makeTexture(from: srcImage, descriptor: desc),
-        let outTexture = self.device.makeTexture(descriptor: desc)
-      else {
-        return request.finish(with: srcImage, context: nil)
-      }
-      
-      // 5. Compile the overlay compute pipeline
-      guard let library = self.device.makeDefaultLibrary() else {
-        return request.finish(with: srcImage, context: nil)
-      }
-      let funcOverlay = library.makeFunction(name: "overlayTextShader")!
-      let overlayState = try! self.device.makeComputePipelineState(function: funcOverlay)
-      
-      // 6. Encode compute pass
-      let cmdBuf = self.commandQueue.makeCommandBuffer()!
-      let encoder = cmdBuf.makeComputeCommandEncoder()!
-      encoder.setComputePipelineState(overlayState)
-      encoder.setTexture(inTexture, index: 0)
-      encoder.setTexture(outTexture, index: 1)
-      encoder.setTexture(textTexture, index: 2)
-      
-      let w = overlayState.threadExecutionWidth
-      let h = overlayState.maxTotalThreadsPerThreadgroup / w
-      let threadsPerGroup = MTLSize(width: w, height: h, depth: 1)
-      let threadGroups = MTLSize(
-        width: (Int(size.width)  + w - 1) / w,
-        height: (Int(size.height) + h - 1) / h,
-        depth: 1
-      )
-      encoder.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadsPerGroup)
-      encoder.endEncoding()
-      cmdBuf.commit()
-      cmdBuf.waitUntilCompleted()
-      
-      // 7. Create CIImage and finish
-      let outputCI = CIImage(mtlTexture: outTexture, options: nil)?
-        .cropped(to: srcImage.extent) ?? srcImage
-      request.finish(with: outputCI, context: nil)
-    }
-    
-    // 8. Match render settings
-    if let track = asset.tracks(withMediaType: .video).first {
-      videoComposition.renderSize = track.naturalSize
-      videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
-    }
-    
-    // 9. Apply to the player item
-    currentItem.videoComposition = videoComposition
-  }
-  
-  private func makeTexture(from ciImage: CIImage,
-                           descriptor: MTLTextureDescriptor) -> MTLTexture? {
-    let context = CIContext(mtlDevice: device)
-    guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
-    context.render(
-      ciImage,
-      to: texture,
-      commandBuffer: nil,
-      bounds: ciImage.extent,
-      colorSpace: CGColorSpaceCreateDeviceRGB()
-    )
-    return texture
-  }
-  
-  func makeTextTexture(_ text: String,
-                       font: UIFont,
-                       color: UIColor,
-                       device: MTLDevice,
-                       size: CGSize) -> MTLTexture? {
-    // 1) Create a texture descriptor
-    let desc = MTLTextureDescriptor.texture2DDescriptor(
-      pixelFormat: .bgra8Unorm,
-      width: Int(size.width),
-      height: Int(size.height),
-      mipmapped: false
-    )
-    desc.usage = [.shaderRead, .shaderWrite]
-    guard let texture = device.makeTexture(descriptor: desc) else { return nil }
-    
-    // 2) Create a CoreGraphics context that draws directly into that texture
-    let bytesPerRow = 4 * Int(size.width)
-    let region = MTLRegionMake2D(0, 0, Int(size.width), Int(size.height))
-    let rawData = [UInt8](repeating: 0, count: bytesPerRow * Int(size.height))
-    rawData.withUnsafeBytes { ptr in
-      guard let ctx = CGContext(
-        data: UnsafeMutableRawPointer(mutating: ptr.baseAddress!),
-        width: Int(size.width),
-        height: Int(size.height),
-        bitsPerComponent: 8,
-        bytesPerRow: bytesPerRow,
-        space: CGColorSpaceCreateDeviceRGB(),
-        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-      ) else { return }
-      
-      // Clear & flip
-      ctx.clear(CGRect(origin: .zero, size: size))
-      ctx.translateBy(x: 0, y: size.height)
-      ctx.scaleBy(x: 1, y: -1)
-      
-      // Draw your text
-      let attrs: [NSAttributedString.Key:Any] = [
-        .font: font,
-        .foregroundColor: color
-      ]
-      let attrString = NSAttributedString(string: text, attributes: attrs)
-      let textRect = CGRect(origin: .zero, size: size)
-      attrString.draw(in: textRect)
-      
-      // Copy pixels into the Metal texture
-      texture.replace(region: region,
-                      mipmapLevel: 0,
-                      withBytes: ptr.baseAddress!,
-                      bytesPerRow: bytesPerRow)
-    }
-    return texture
   }
   
   func addBackgroundMusic(name: String) {
@@ -457,7 +323,6 @@ final class VideoPlayerViewModel: ObservableObject, VideoPlayerViewModelProtocol
     print("✅ Player item replaced, starting playback")
     player.play()
   }
-  
   
   deinit {
     NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: player.currentItem)
