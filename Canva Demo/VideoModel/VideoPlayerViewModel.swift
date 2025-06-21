@@ -23,6 +23,7 @@ protocol VideoPlayerViewModelProtocol: ObservableObject {
   func applyGrayscale()
   func applyText(_ text: String)
   func addBackgroundMusic(name: String)
+  func appendVideo(name: String)
 }
 
 final class VideoPlayerViewModel: ObservableObject, VideoPlayerViewModelProtocol {
@@ -124,84 +125,84 @@ final class VideoPlayerViewModel: ObservableObject, VideoPlayerViewModelProtocol
   
   /// Overlays the given text using a Metal compute shader.
   func applyText(_ text: String) {
-      guard let currentItem = player.currentItem else { return }
-      let asset = currentItem.asset
-
-      // 1. Determine video size
-      guard let track = asset.tracks(withMediaType: .video).first else { return }
-      let size = track.naturalSize
-
-      // 2. Create a texture for the rendered text
-      let font = UIFont.systemFont(ofSize: 72)
-      guard let textTexture = makeTextTexture(text,
-                                              font: font,
-                                              color: .white,
-                                              device: device,
-                                              size: size) else {
-          return
+    guard let currentItem = player.currentItem else { return }
+    let asset = currentItem.asset
+    
+    // 1. Determine video size
+    guard let track = asset.tracks(withMediaType: .video).first else { return }
+    let size = track.naturalSize
+    
+    // 2. Create a texture for the rendered text
+    let font = UIFont.systemFont(ofSize: 72)
+    guard let textTexture = makeTextTexture(text,
+                                            font: font,
+                                            color: .white,
+                                            device: device,
+                                            size: size) else {
+      return
+    }
+    
+    // 3. Build video composition with Metal overlay
+    let videoComposition = AVMutableVideoComposition(asset: asset) { request in
+      let srcImage = request.sourceImage.clampedToExtent()
+      
+      // 4. Prepare input/output Metal textures
+      let desc = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .bgra8Unorm,
+        width: Int(size.width),
+        height: Int(size.height),
+        mipmapped: false
+      )
+      desc.usage = [.shaderRead, .shaderWrite]
+      guard
+        let inTexture = self.makeTexture(from: srcImage, descriptor: desc),
+        let outTexture = self.device.makeTexture(descriptor: desc)
+      else {
+        return request.finish(with: srcImage, context: nil)
       }
-
-      // 3. Build video composition with Metal overlay
-      let videoComposition = AVMutableVideoComposition(asset: asset) { request in
-          let srcImage = request.sourceImage.clampedToExtent()
-
-          // 4. Prepare input/output Metal textures
-          let desc = MTLTextureDescriptor.texture2DDescriptor(
-              pixelFormat: .bgra8Unorm,
-              width: Int(size.width),
-              height: Int(size.height),
-              mipmapped: false
-          )
-          desc.usage = [.shaderRead, .shaderWrite]
-          guard
-              let inTexture = self.makeTexture(from: srcImage, descriptor: desc),
-              let outTexture = self.device.makeTexture(descriptor: desc)
-          else {
-              return request.finish(with: srcImage, context: nil)
-          }
-
-          // 5. Compile the overlay compute pipeline
-          guard let library = self.device.makeDefaultLibrary() else {
-              return request.finish(with: srcImage, context: nil)
-          }
-          let funcOverlay = library.makeFunction(name: "overlayTextShader")!
-          let overlayState = try! self.device.makeComputePipelineState(function: funcOverlay)
-
-          // 6. Encode compute pass
-          let cmdBuf = self.commandQueue.makeCommandBuffer()!
-          let encoder = cmdBuf.makeComputeCommandEncoder()!
-          encoder.setComputePipelineState(overlayState)
-          encoder.setTexture(inTexture, index: 0)
-          encoder.setTexture(outTexture, index: 1)
-          encoder.setTexture(textTexture, index: 2)
-
-          let w = overlayState.threadExecutionWidth
-          let h = overlayState.maxTotalThreadsPerThreadgroup / w
-          let threadsPerGroup = MTLSize(width: w, height: h, depth: 1)
-          let threadGroups = MTLSize(
-              width: (Int(size.width)  + w - 1) / w,
-              height: (Int(size.height) + h - 1) / h,
-              depth: 1
-          )
-          encoder.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadsPerGroup)
-          encoder.endEncoding()
-          cmdBuf.commit()
-          cmdBuf.waitUntilCompleted()
-
-          // 7. Create CIImage and finish
-          let outputCI = CIImage(mtlTexture: outTexture, options: nil)?
-                           .cropped(to: srcImage.extent) ?? srcImage
-          request.finish(with: outputCI, context: nil)
+      
+      // 5. Compile the overlay compute pipeline
+      guard let library = self.device.makeDefaultLibrary() else {
+        return request.finish(with: srcImage, context: nil)
       }
-
-      // 8. Match render settings
-      if let track = asset.tracks(withMediaType: .video).first {
-          videoComposition.renderSize = track.naturalSize
-          videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
-      }
-
-      // 9. Apply to the player item
-      currentItem.videoComposition = videoComposition
+      let funcOverlay = library.makeFunction(name: "overlayTextShader")!
+      let overlayState = try! self.device.makeComputePipelineState(function: funcOverlay)
+      
+      // 6. Encode compute pass
+      let cmdBuf = self.commandQueue.makeCommandBuffer()!
+      let encoder = cmdBuf.makeComputeCommandEncoder()!
+      encoder.setComputePipelineState(overlayState)
+      encoder.setTexture(inTexture, index: 0)
+      encoder.setTexture(outTexture, index: 1)
+      encoder.setTexture(textTexture, index: 2)
+      
+      let w = overlayState.threadExecutionWidth
+      let h = overlayState.maxTotalThreadsPerThreadgroup / w
+      let threadsPerGroup = MTLSize(width: w, height: h, depth: 1)
+      let threadGroups = MTLSize(
+        width: (Int(size.width)  + w - 1) / w,
+        height: (Int(size.height) + h - 1) / h,
+        depth: 1
+      )
+      encoder.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadsPerGroup)
+      encoder.endEncoding()
+      cmdBuf.commit()
+      cmdBuf.waitUntilCompleted()
+      
+      // 7. Create CIImage and finish
+      let outputCI = CIImage(mtlTexture: outTexture, options: nil)?
+        .cropped(to: srcImage.extent) ?? srcImage
+      request.finish(with: outputCI, context: nil)
+    }
+    
+    // 8. Match render settings
+    if let track = asset.tracks(withMediaType: .video).first {
+      videoComposition.renderSize = track.naturalSize
+      videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+    }
+    
+    // 9. Apply to the player item
+    currentItem.videoComposition = videoComposition
   }
   
   private func makeTexture(from ciImage: CIImage,
@@ -338,6 +339,125 @@ final class VideoPlayerViewModel: ObservableObject, VideoPlayerViewModelProtocol
     player.replaceCurrentItem(with: newItem)
     player.play()
   }
+  
+  /// Appends a video named `name.mp4` from the main bundle to the end of the original video.
+  func appendVideo(name: String) {
+    // 1. First segment: original asset
+    let firstAsset = originalAsset
+    
+    // 2. Second segment: load from bundle
+    guard let secondURL = Bundle.main.url(forResource: name, withExtension: "mp4") else {
+      print("❌ could not find \(name).mp4 in bundle")
+      return
+    }
+    let secondAsset = AVAsset(url: secondURL)
+    
+    // 3. Build composition
+    let composition = AVMutableComposition()
+    
+    // 4. Create a SINGLE video track for both videos
+    guard let compVideoTrack = composition.addMutableTrack(
+      withMediaType: .video,
+      preferredTrackID: kCMPersistentTrackID_Invalid
+    ) else {
+      print("❌ Failed to create composition video track")
+      return
+    }
+    
+    // 5. Insert first video into the single track
+    guard let firstVideoTrack = firstAsset.tracks(withMediaType: .video).first else {
+      print("❌ First video has no video track")
+      return
+    }
+    
+    do {
+      try compVideoTrack.insertTimeRange(
+        CMTimeRange(start: .zero, duration: firstAsset.duration),
+        of: firstVideoTrack,
+        at: .zero
+      )
+      compVideoTrack.preferredTransform = firstVideoTrack.preferredTransform
+      print("✅ First video inserted: duration \(firstAsset.duration.seconds)s")
+    } catch {
+      print("❌ Failed to insert first video: \(error)")
+      return
+    }
+    
+    // 6. Insert second video into the SAME track at the end of first video
+    guard let secondVideoTrack = secondAsset.tracks(withMediaType: .video).first else {
+      print("❌ Second video has no video track")
+      return
+    }
+    
+    do {
+      try compVideoTrack.insertTimeRange(
+        CMTimeRange(start: .zero, duration: secondAsset.duration),
+        of: secondVideoTrack,
+        at: firstAsset.duration  // Start at end of first video
+      )
+      print("✅ Second video inserted: duration \(secondAsset.duration.seconds)s at time \(firstAsset.duration.seconds)s")
+    } catch {
+      print("❌ Failed to insert second video: \(error)")
+      return
+    }
+    
+    // 7. Create a SINGLE audio track for both audio streams
+    if let compAudioTrack = composition.addMutableTrack(
+      withMediaType: .audio,
+      preferredTrackID: kCMPersistentTrackID_Invalid
+    ) {
+      // Insert first audio
+      if let firstAudio = firstAsset.tracks(withMediaType: .audio).first {
+        do {
+          try compAudioTrack.insertTimeRange(
+            CMTimeRange(start: .zero, duration: firstAsset.duration),
+            of: firstAudio,
+            at: .zero
+          )
+          print("✅ First audio inserted")
+        } catch {
+          print("⚠️ Failed to insert first audio: \(error)")
+        }
+      }
+      
+      // Insert second audio at end of first
+      if let secondAudio = secondAsset.tracks(withMediaType: .audio).first {
+        do {
+          try compAudioTrack.insertTimeRange(
+            CMTimeRange(start: .zero, duration: secondAsset.duration),
+            of: secondAudio,
+            at: firstAsset.duration
+          )
+          print("✅ Second audio inserted")
+        } catch {
+          print("⚠️ Failed to insert second audio: \(error)")
+        }
+      }
+    }
+    
+    // 8. Log total composition duration
+    let totalDuration = firstAsset.duration + secondAsset.duration
+    print("✅ Total composition duration: \(totalDuration.seconds)s")
+    
+    // 9. Create new player item and replace current item
+    let newItem = AVPlayerItem(asset: composition)
+    
+    // 10. Preserve any existing video composition (filters, etc.)
+    if let currentVideoComposition = player.currentItem?.videoComposition {
+      // Create a new video composition for the concatenated video
+      let newVideoComposition = AVMutableVideoComposition()
+      newVideoComposition.frameDuration = currentVideoComposition.frameDuration
+      newVideoComposition.renderSize = currentVideoComposition.renderSize
+      newVideoComposition.instructions = currentVideoComposition.instructions
+      newItem.videoComposition = newVideoComposition
+    }
+    
+    // 11. Replace and play
+    player.replaceCurrentItem(with: newItem)
+    print("✅ Player item replaced, starting playback")
+    player.play()
+  }
+  
   
   deinit {
     NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: player.currentItem)

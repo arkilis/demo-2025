@@ -7,8 +7,9 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
   @State private var isPickerPresented = false
   @State private var exportStatus = ""
   @State private var showingFilterSheet = false
+  @State private var showingAddVideoSheet = false
   @State private var showingAddMusicSheet = false
-  
+
   @StateObject private var videoPlayerViewModel: VideoPlayerViewModel
 
   
@@ -80,6 +81,9 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
           }
         Spacer()
         VStack(spacing: 4) { Image(systemName: "video.fill"); Text("Add Video").font(.caption) }
+          .toolbarButton {
+            showingAddVideoSheet = true
+          }
         Spacer()
         VStack(spacing: 4) { Image(systemName: "textformat"); Text("Add Text").font(.caption) }
           .toolbarButton {
@@ -111,6 +115,18 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
     ) {
       Button("Black and White") {
         videoPlayerViewModel.applyGrayscale()
+      }
+    }
+    .confirmationDialog(
+      "Add Video",
+      isPresented: $showingAddVideoSheet,
+      titleVisibility: .visible
+    ) {
+      Button("Cat") {
+        videoPlayerViewModel.appendVideo(name: "cat")
+      }
+      Button("Dog") {
+        videoPlayerViewModel.appendVideo(name: "dog")
       }
     }
     .confirmationDialog(
