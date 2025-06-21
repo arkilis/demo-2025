@@ -7,6 +7,7 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
   @State private var isPickerPresented = false
   @State private var exportStatus = ""
   @State private var showingFilterSheet = false
+  @State private var showingAddMusicSheet = false
   
   @StateObject private var videoPlayerViewModel: VideoPlayerViewModel
 
@@ -88,6 +89,9 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
         VStack(spacing: 4) { Image(systemName: "photo.on.rectangle"); Text("Add Image").font(.caption) }
         Spacer()
         VStack(spacing: 4) { Image(systemName: "music.note"); Text("Add Music").font(.caption) }
+          .toolbarButton {
+            showingAddMusicSheet = true
+          }
         Spacer()
         VStack(spacing: 4) { Image(systemName: "arrow.clockwise"); Text("Rotate").font(.caption) }
           .toolbarButton {
@@ -107,6 +111,21 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
     ) {
       Button("Black and White") {
         videoPlayerViewModel.applyGrayscale()
+      }
+    }
+    .confirmationDialog(
+      "Add Background Music",
+      isPresented: $showingAddMusicSheet,
+      titleVisibility: .visible
+    ) {
+      Button("Music 1") {
+        videoPlayerViewModel.addBackgroundMusic(name: "background1")
+      }
+      Button("Music 2") {
+        videoPlayerViewModel.addBackgroundMusic(name: "background2")
+      }
+      Button("Music 3") {
+        videoPlayerViewModel.addBackgroundMusic(name: "background3")
       }
     }
   }
