@@ -68,6 +68,9 @@ extension VideoPlayerViewModel {
     // Apply to current item
     currentItem.videoComposition = videoComposition
     print("✅ Text overlay added: '\(text)' from \(startTime.seconds)s for \(videoDuration.seconds)s")
+    
+    timelineThumbnails.removeAll()
+    generateTimelineThumbnails()
   }
   
   // MARK: - Helper Methods
@@ -210,53 +213,4 @@ extension VideoPlayerViewModel {
       duration: CMTime(seconds: duration, preferredTimescale: 600)
     )
   }
-  
-  /// Add multiple text overlays at different times
-  func addTextOverlays(_ textOverlays: [(text: String, startTime: Double, duration: Double)]) {
-    guard let currentItem = player.currentItem else {
-      print("❌ No current player item")
-      return
-    }
-    
-    let asset = currentItem.asset
-    
-    let videoComposition = AVMutableVideoComposition(asset: asset) { request in
-      let sourceImage = request.sourceImage
-      let renderSize = sourceImage.extent.size
-      let currentTime = request.compositionTime
-      
-      var resultImage = sourceImage
-      
-      // Check each text overlay
-      for overlay in textOverlays {
-        let startTime = CMTime(seconds: overlay.startTime, preferredTimescale: 600)
-        let endTime = startTime + CMTime(seconds: overlay.duration, preferredTimescale: 600)
-        
-        if currentTime >= startTime && currentTime <= endTime {
-          if let textImage = self.createTextImage(
-            text: overlay.text,
-            fontSize: 36,
-            textColor: .white,
-            backgroundColor: .black.withAlphaComponent(0.5),
-            renderSize: renderSize,
-            position: .bottomCenter
-          ) {
-            resultImage = textImage.composited(over: resultImage)
-          }
-        }
-      }
-      
-      request.finish(with: resultImage, context: nil)
-    }
-    
-    // Set video composition properties
-    if let videoTrack = asset.tracks(withMediaType: .video).first {
-      videoComposition.renderSize = videoTrack.naturalSize
-      videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
-    }
-    
-    currentItem.videoComposition = videoComposition
-    print("✅ Added \(textOverlays.count) text overlays")
-  }
-  
 }

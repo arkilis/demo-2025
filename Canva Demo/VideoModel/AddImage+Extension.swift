@@ -72,14 +72,12 @@ extension VideoPlayerViewModel {
     // Apply to current item
     currentItem.videoComposition = videoComposition
     print("✅ Image overlay added: '\(imageName)' from \(startTime.seconds)s for \(imageDuration.seconds)s")
+    
+    timelineThumbnails.removeAll()
+    generateTimelineThumbnails()
   }
   
-  // MARK: - Image Position and Size Enums
-  
-
-  
   // MARK: - Helper Methods
-  
   private func createImageOverlay(image: UIImage,
                                   position: ElementPosition,
                                   size: ImageSize,

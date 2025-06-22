@@ -8,6 +8,7 @@
 import SwiftUI
 import AVFoundation
 import Combine
+import UIKit
 
 /// Simple enum to pick one of the four corners (or center) for your overlay text.
 enum ElementPosition {
@@ -31,6 +32,7 @@ protocol VideoPlayerViewModelProtocol: ObservableObject {
   var player: AVPlayer { get }
   var isPlaying: Bool { get }
   var rotationAngle: Double { get }
+  var timelineThumbnails: [UIImage] { get }
   func play()
   func pause()
   func rotate()
@@ -50,7 +52,8 @@ protocol VideoPlayerViewModelProtocol: ObservableObject {
                        opacity: Float,
                        startTime: CMTime,
                        duration: CMTime?)
-  func exportCurrentVideo(completion: @escaping (URL?) -> Void) 
+  func exportCurrentVideo(completion: @escaping (URL?) -> Void)
+  func generateTimelineThumbnails()
 }
 
 final class VideoPlayerViewModel: ObservableObject, VideoPlayerViewModelProtocol {
@@ -58,6 +61,7 @@ final class VideoPlayerViewModel: ObservableObject, VideoPlayerViewModelProtocol
   @Published var player: AVPlayer
   @Published var isPlaying: Bool = false
   @Published var rotationAngle: Double = 0
+  @Published var timelineThumbnails: [UIImage] = []
   
   let originalVideoURL: URL
   let originalAsset: AVAsset
@@ -108,10 +112,37 @@ final class VideoPlayerViewModel: ObservableObject, VideoPlayerViewModelProtocol
   
   func rotate() {
     rotationAngle = (rotationAngle + 90).truncatingRemainder(dividingBy: 360)
+    timelineThumbnails.removeAll()
+    generateTimelineThumbnails()
   }
   
-  
-  
+  // Update the timeline thumbnails
+  func generateTimelineThumbnails() {
+    let asset = player.currentItem?.asset ?? originalAsset
+    let imageGenerator = AVAssetImageGenerator(asset: asset)
+    imageGenerator.appliesPreferredTrackTransform = true
+
+    // Ensure overlays and filters are applied in thumbnails
+    if let videoComp = player.currentItem?.videoComposition {
+        imageGenerator.videoComposition = videoComp
+    }
+
+    let durationSeconds = CMTimeGetSeconds(asset.duration)
+    let thumbnailCount = 10
+    let interval = durationSeconds / Double(thumbnailCount)
+    let times = (0..<thumbnailCount).map { index in
+      CMTime(seconds: Double(index) * interval, preferredTimescale: 600) as NSValue
+    }
+
+    imageGenerator.generateCGImagesAsynchronously(forTimes: times) { _, cgImage, _, result, _ in
+      if let cgImage = cgImage, result == .succeeded {
+        let uiImage = UIImage(cgImage: cgImage)
+        DispatchQueue.main.async {
+          self.timelineThumbnails.append(uiImage)
+        }
+      }
+    }
+  }
   
   deinit {
     NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: player.currentItem)

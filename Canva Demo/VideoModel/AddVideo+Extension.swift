@@ -120,6 +120,8 @@ extension VideoPlayerViewModel {
           }
           self.player.replaceCurrentItem(with: newItem)
           self.player.play()
+          self.timelineThumbnails.removeAll()
+          self.generateTimelineThumbnails()
         }
       } catch {
         print("❌ Error loading tracks or inserting: \(error)")

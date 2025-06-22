@@ -49,5 +49,8 @@ extension VideoPlayerViewModel {
     
     // Apply to player item
     currentItem.videoComposition = videoComposition
+    
+    timelineThumbnails.removeAll()
+    generateTimelineThumbnails()
   }
 }

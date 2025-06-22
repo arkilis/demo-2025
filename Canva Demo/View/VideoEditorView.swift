@@ -29,9 +29,6 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
   
   @StateObject private var videoPlayerViewModel: VideoPlayerViewModel
   
-  // Sample thumbnails for timeline segments
-  let thumbnails = Array(1...5).map { "thumb\($0)" }
-  
   public init(videoPlayerViewModel: VideoPlayerViewModel) {
     _videoPlayerViewModel = StateObject(wrappedValue: videoPlayerViewModel)
   }
@@ -97,11 +94,12 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
       // Timeline
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 8) {
-          ForEach(thumbnails, id: \.self) { name in
-            Rectangle()
-              .fill(Color.gray)
+          ForEach(videoPlayerViewModel.timelineThumbnails, id: \.self) { thumbnail in
+            Image(uiImage: thumbnail)
+              .resizable()
+              .aspectRatio(contentMode: .fill)
               .frame(width: 80, height: 60)
-              .overlay(Text(name).foregroundColor(.white).font(.caption))
+              .clipped()
               .cornerRadius(4)
           }
         }
@@ -174,17 +172,8 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
           .presentationDragIndicator(.visible)
       }
     }
+    .onAppear {
+      videoPlayerViewModel.generateTimelineThumbnails()
+    }
   }
-}
-
-/// A SwiftUI wrapper for UIActivityViewController to share items.
-struct ActivityView: UIViewControllerRepresentable {
-  let activityItems: [Any]
-  let applicationActivities: [UIActivity]? = nil
-
-  func makeUIViewController(context: Context) -> UIActivityViewController {
-    UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
-  }
-
-  func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) { }
 }
