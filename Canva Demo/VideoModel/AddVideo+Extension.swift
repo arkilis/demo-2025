@@ -112,11 +112,7 @@ extension VideoPlayerViewModel {
           let newItem = AVPlayerItem(asset: composition)
           // Preserve existing videoComposition if present
           if let currentVC = self.player.currentItem?.videoComposition {
-            let newVC = AVMutableVideoComposition()
-            newVC.frameDuration = currentVC.frameDuration
-            newVC.renderSize = currentVC.renderSize
-            newVC.instructions = currentVC.instructions
-            newItem.videoComposition = newVC
+              newItem.videoComposition = currentVC
           }
           self.player.replaceCurrentItem(with: newItem)
           self.player.play()
