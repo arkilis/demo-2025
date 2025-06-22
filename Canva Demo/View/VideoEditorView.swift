@@ -1,13 +1,14 @@
 import Foundation
 import SwiftUI
 import PhotosUI
+import UIKit
 
 enum ActiveDialog: Identifiable {
   case filter, addVideo, addMusic
   var id: Int { hashValue }
   var title: String {
     switch self {
-    case .filter: return Constants.sheetVideoFilter
+    case .filter:   return Constants.sheetVideoFilter
     case .addVideo: return Constants.sheetAddVideo
     case .addMusic: return Constants.sheetAddMuisic
     }
@@ -21,8 +22,12 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
   @State private var exportStatus = ""
   @State private var activeDialog: ActiveDialog?
   
-  @StateObject private var videoPlayerViewModel: VideoPlayerViewModel
+  // new state for export/loading
+  @State private var shareURL: URL?
+  @State private var isShowingShareSheet = false
+  @State private var isExporting = false
   
+  @StateObject private var videoPlayerViewModel: VideoPlayerViewModel
   
   // Sample thumbnails for timeline segments
   let thumbnails = Array(1...5).map { "thumb\($0)" }
@@ -38,25 +43,49 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
         Image(systemName: Constants.iconMenu)
         Spacer()
         HStack(spacing: 16) {
-          Button(action: {
+          // Play / Pause
+          Button {
             if videoPlayerViewModel.isPlaying {
               videoPlayerViewModel.pause()
             } else {
               videoPlayerViewModel.play()
             }
-          }) {
-            Image(systemName: videoPlayerViewModel.isPlaying ? Constants.iconPlay : Constants.iconPause)
+          } label: {
+            Image(systemName: videoPlayerViewModel.isPlaying
+                  ? Constants.iconPlay
+                  : Constants.iconPause)
           }
-          Image(systemName: Constants.iconShare)
+
+          // Export & Share
+          Button {
+            isExporting = true
+            videoPlayerViewModel.exportCurrentVideo { url in
+              isExporting = false
+              if let url = url {
+                shareURL = url
+                isShowingShareSheet = true
+              }
+            }
+          } label: {
+            if isExporting {
+              ProgressView()
+            } else {
+              Image(systemName: Constants.iconShare)
+            }
+          }
+          .disabled(isExporting)
         }
       }
       .foregroundColor(.white)
       .padding(.horizontal)
-      .padding(.top, 8) // Simplified padding
-      .padding(.bottom, 8)
-      .background(LinearGradient(gradient: Gradient(colors: [Color.blue, Color.purple]),
-                                 startPoint: .leading,
-                                 endPoint: .trailing))
+      .padding(.vertical, 8)
+      .background(
+        LinearGradient(
+          gradient: Gradient(colors: [Color.blue, Color.purple]),
+          startPoint: .leading,
+          endPoint: .trailing
+        )
+      )
       
       // Video preview
       ZStack {
@@ -88,15 +117,15 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
         viewModel: videoPlayerViewModel,
         showingFilterSheet: Binding(
           get: { activeDialog == .filter },
-          set: { if $0 { activeDialog = .filter } else { activeDialog = nil } }
+          set: { activeDialog = $0 ? .filter : nil }
         ),
         showingAddVideoSheet: Binding(
           get: { activeDialog == .addVideo },
-          set: { if $0 { activeDialog = .addVideo } else { activeDialog = nil } }
+          set: { activeDialog = $0 ? .addVideo : nil }
         ),
         showingAddMusicSheet: Binding(
           get: { activeDialog == .addMusic },
-          set: { if $0 { activeDialog = .addMusic } else { activeDialog = nil } }
+          set: { activeDialog = $0 ? .addMusic : nil }
         )
       )
       .padding(.vertical, 8)
@@ -113,17 +142,49 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
     ) {
       switch activeDialog {
       case .filter:
-        Button(Constants.sheetButtonFilterBlackWhite) { videoPlayerViewModel.applyGrayscale() }
+        Button(Constants.sheetButtonFilterBlackWhite) {
+          videoPlayerViewModel.applyGrayscale()
+        }
       case .addVideo:
-        Button(Constants.sheetButtonCat) { videoPlayerViewModel.appendVideo(name: Constants.resourceCat) }
-        Button(Constants.sheetButtonDog) { videoPlayerViewModel.appendVideo(name: Constants.resourceDog) }
+        Button(Constants.sheetButtonCat) {
+          videoPlayerViewModel.appendVideo(name: Constants.resourceCat)
+        }
+        Button(Constants.sheetButtonDog) {
+          videoPlayerViewModel.appendVideo(name: Constants.resourceDog)
+        }
       case .addMusic:
-        Button(Constants.sheetButtonMusic1) { videoPlayerViewModel.addBackgroundMusic(name: Constants.resourceBackground1) }
-        Button(Constants.sheetButtonMusic2) { videoPlayerViewModel.addBackgroundMusic(name: Constants.resourceBackground2) }
-        Button(Constants.sheetButtonMusic3) { videoPlayerViewModel.addBackgroundMusic(name: Constants.resourceBackground3) }
+        Button(Constants.sheetButtonMusic1) {
+          videoPlayerViewModel.addBackgroundMusic(name: Constants.resourceBackground1)
+        }
+        Button(Constants.sheetButtonMusic2) {
+          videoPlayerViewModel.addBackgroundMusic(name: Constants.resourceBackground2)
+        }
+        Button(Constants.sheetButtonMusic3) {
+          videoPlayerViewModel.addBackgroundMusic(name: Constants.resourceBackground3)
+        }
       case .none:
         EmptyView()
       }
     }
+    // Half-screen share sheet
+    .sheet(isPresented: $isShowingShareSheet) {
+      if let url = shareURL {
+        ActivityView(activityItems: [url])
+          .presentationDetents([.medium])
+          .presentationDragIndicator(.visible)
+      }
+    }
   }
+}
+
+/// A SwiftUI wrapper for UIActivityViewController to share items.
+struct ActivityView: UIViewControllerRepresentable {
+  let activityItems: [Any]
+  let applicationActivities: [UIActivity]? = nil
+
+  func makeUIViewController(context: Context) -> UIActivityViewController {
+    UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+  }
+
+  func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) { }
 }

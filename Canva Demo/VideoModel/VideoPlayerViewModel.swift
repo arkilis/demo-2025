@@ -50,6 +50,7 @@ protocol VideoPlayerViewModelProtocol: ObservableObject {
                        opacity: Float,
                        startTime: CMTime,
                        duration: CMTime?)
+  func exportCurrentVideo(completion: @escaping (URL?) -> Void)
 }
 
 final class VideoPlayerViewModel: ObservableObject, VideoPlayerViewModelProtocol {
