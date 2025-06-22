@@ -21,11 +21,10 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
   @State private var isPickerPresented = false
   @State private var exportStatus = ""
   @State private var activeDialog: ActiveDialog?
-  
-  // new state for export/loading
   @State private var shareURL: URL?
   @State private var isShowingShareSheet = false
   @State private var isExporting = false
+  @State private var showInfoSheet = false
   
   @StateObject private var videoPlayerViewModel: VideoPlayerViewModel
   
@@ -37,10 +36,15 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
     VStack(spacing: 0) {
       // Top toolbar
       HStack {
-        Image(systemName: Constants.iconMenu)
+        Button {
+          showInfoSheet = true
+        } label: {
+          Image(systemName: Constants.iconMenu)
+        }
         Spacer()
         HStack(spacing: 16) {
-          // Play / Pause
+          
+          // Play/Pause
           Button {
             if videoPlayerViewModel.isPlaying {
               videoPlayerViewModel.pause()
@@ -49,8 +53,8 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
             }
           } label: {
             Image(systemName: videoPlayerViewModel.isPlaying
-                  ? Constants.iconPlay
-                  : Constants.iconPause)
+                  ? Constants.iconPause
+                  : Constants.iconPlay)
           }
 
           // Export & Share
@@ -174,6 +178,9 @@ struct VideoEditorView<VideoPlayerViewModel: VideoPlayerViewModelProtocol>: View
     }
     .onAppear {
       videoPlayerViewModel.generateTimelineThumbnails()
+    }
+    .sheet(isPresented: $showInfoSheet) {
+      InfoSheetView(isPresented: $showInfoSheet)
     }
   }
 }

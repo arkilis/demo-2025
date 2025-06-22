@@ -55,4 +55,15 @@ enum Constants {
   
   /// Image
   static let imagePlaceholder = "unicorn"
+  
+  // Info sheet text
+  static let infoSheetTitle = "🎉 Canva Interview Demo 2025"
+  static let infoThankYou = "Thank you for the opportunity and for spending time with me during the interview!"
+  static let infoApplicantLabel = "😊 Applicant: "
+  static let infoApplicantName = "Ben Yang Liu"
+  static let infoEmailLabel = "📮 Email: "
+  static let infoEmailAddress = "yang.liu7@uqconnect.edu.au"
+  static let infoPhoneLabel = "📱 Phone:"
+  static let infoPhoneNumber = "(61) 0425 119 886"
+  static let buttonOK = "OK"
 }
